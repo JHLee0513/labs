@@ -2,6 +2,7 @@
 
 import asyncio
 import sys
+import time
 
 import cv2
 import numpy as np
@@ -57,6 +58,9 @@ async def run(robot: cozmo.robot.Robot):
     robot.world.image_annotator.add_annotator('battery', BatteryAnnotator)
     robot.world.image_annotator.add_annotator('ball', BallAnnotator)
 
+    robot.move_lift(-4)
+    camera = robot.camera
+    camera.enable_auto_exposure()
 
     try:
 
@@ -67,22 +71,43 @@ async def run(robot: cozmo.robot.Robot):
             #convert camera image to opencv format
             opencv_image = cv2.cvtColor(np.asarray(event.image), cv2.COLOR_RGB2GRAY)
 
+
             #find the ball
             ball = find_ball.find_ball(opencv_image)
 
             #set annotator ball
             BallAnnotator.ball = ball
 
-            ## TODO: ENTER YOUR SOLUTION HERE
+            threshold = 120
+            # print(ball) 
+            # print(opencv_image.shape)
+            if (BallAnnotator.ball is None):
+                # Search
+                await robot.turn_in_place(cozmo.util.degrees(35)).wait_for_completed()
+                time.sleep(.1)
+            else:
+                if (BallAnnotator.ball[2] >= threshold):
+                    # Hit
+                    robot.move_lift(2)
+                    time.sleep(.2)
+                    robot.move_lift(-2)
+                    time.sleep(.2)
+                else:
+                    # Move
+                    # ctrpoint < 0 --> ball is on RHS, ctrpoint >0 --> ball is on LHS, else ball is at center
+                    centerpoint = 160 - ball[0]
+                    motor_right = 10 - 15 * (centerpoint / 320.) 
+                    motor_left = 10 + 15 * (centerpoint / 320.)
 
+                    await robot.drive_wheels(motor_right, motor_left)
+                    time.sleep(.2)
+            time.sleep(.4)
 
     except KeyboardInterrupt:
         print("")
         print("Exit requested by user")
     except cozmo.RobotBusy as e:
         print(e)
-
-
 
 if __name__ == '__main__':
     cozmo.run_program(run, use_viewer = True, force_viewer_on_top = True)

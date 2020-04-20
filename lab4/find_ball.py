@@ -24,9 +24,26 @@ def find_ball(opencv_image, debug=False):
 	"""
 
 	ball = None
+		
+	# Denoising image via blur
+	opencv_image = cv2.blur(opencv_image, (9,9))
+	circles = cv2.HoughCircles(
+		opencv_image, 			#input
+		cv2.HOUGH_GRADIENT,		#method
+		1,						#dp
+		30,						#minDist
+		120,					#param1
+		60,						#param2
+		20,						#minRadius
+		80)						#maxRadius
 	
-	## TODO: INSERT YOUR SOLUTION HERE
-	
+	if circles is not None:
+		circles = np.uint16(np.around(circles))[0,:]
+		if (len(circles.shape) != 2):
+			pass
+		else:
+			ball = circles[0]
+
 	return ball
 
 

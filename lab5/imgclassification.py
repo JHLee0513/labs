@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
 ##############
-#### Your name:
+#### Your name: (Brian) JoonHo Lee
 ##############
 
 import numpy as np
 import re
 from sklearn import svm, metrics
 from skimage import io, feature, filters, exposure, color
+import cv2
 
 class ImageClassifier:
     
@@ -35,11 +36,22 @@ class ImageClassifier:
     def extract_image_features(self, data):
         # Please do not modify the header above
 
-        # extract feature vector from image data
+        # extract feature vector from normalized image data
 
-        ########################
-        ######## YOUR CODE HERE
-        ########################
+        feature_data = []
+        for image in data:
+            image = cv2.normalize(image, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+            features = feature.hog(
+                image,
+                orientations=9,
+                pixels_per_cell = (16,16),
+                cells_per_block=(4,4),
+                block_norm='L1',
+                visualize=False,
+                transform_sqrt=True,
+                feature_vector=True,
+                multichannel=True)
+            feature_data += [features]
         
         # Please do not modify the return type below
         return(feature_data)
@@ -49,9 +61,9 @@ class ImageClassifier:
         
         # train model and save the trained model to self.classifier
         
-        ########################
-        ######## YOUR CODE HERE
-        ########################
+        model = svm.LinearSVC(C=0.5)
+        model.fit(train_data, train_labels)
+        self.classifer = model
 
     def predict_labels(self, data):
         # Please do not modify the header
@@ -59,9 +71,7 @@ class ImageClassifier:
         # predict labels of test data using trained model in self.classifier
         # the code below expects output to be stored in predicted_labels
         
-        ########################
-        ######## YOUR CODE HERE
-        ########################
+        predicted_labels = self.classifer.predict(data)
         
         # Please do not modify the return type below
         return predicted_labels
