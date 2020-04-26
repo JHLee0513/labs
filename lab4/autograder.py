@@ -43,4 +43,5 @@ for filedata in grid_data:
 	if center_err <= center_err_thresh and r_err <= radius_err_thresh:
 		score += 1;
  
-print("score =", score)
+# print("score =", score)
+print("score =", score/len(grid_data))

@@ -39,6 +39,7 @@ def find_ball(opencv_image, debug=False):
 	
 	if circles is not None:
 		circles = np.uint16(np.around(circles))[0,:]
+		# checking output list shape
 		if (len(circles.shape) != 2):
 			pass
 		else:
