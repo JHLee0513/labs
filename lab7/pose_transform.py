@@ -7,19 +7,30 @@ This is starter code for Lab 7 on Coordinate Frame transforms.
 
 import asyncio
 import cozmo
-import numpy
-from cozmo.util import degrees, Angle, Pose, distance_mm, speed_mmps
+import numpy as np
+from numpy.linalg import inv
+from scipy.spatial.transform import Rotation as R
+from cozmo.util import degrees, Angle, Pose, distance_mm, speed_mmps, Position, Rotation
 import math
 import time
 import sys
 
 def get_relative_pose(object_pose, reference_frame_pose):
-	# ####
-	# TODO: Implement computation of the relative frame using numpy.
-	# Try to derive the equations yourself and verify by looking at
-	# the books or slides before implementing.
-	# ####
-	return None
+
+	# get 4x4 matrix for wTr (world-to-robot)
+	wTr = np.array(reference_frame_pose.to_matrix().in_column_order).reshape((4,4))
+	# get 4x4 matrix for wTo (world-to-object)
+	wTo = np.array(object_pose.to_matrix().in_column_order).reshape((4,4))
+
+	# Compute relative transform of cube-to-robot
+	relative_transform = np.zeros((4,4))
+	relative_transform[:3,:3] = wTr[:3,:3].T @ wTo[:3,:3]
+	relative_transform[:,3][:3] = wTr[:3,:3].T @ ((wTo[:,3] - wTr[:,3])[:3])
+	relative_transform[3,:] = [0, 0, 0, 1]
+	pos = relative_transform[:,3]
+	z = R.from_matrix(relative_transform[:3,:3]).as_euler("zxy", degrees = True)[0]
+
+	return Pose(pos[0], pos[1], pos[2], angle_z = degrees(z))
 
 def find_relative_cube_pose(robot: cozmo.robot.Robot):
 	'''Looks for a cube while sitting still, prints the pose of the detected cube
@@ -55,17 +66,30 @@ def move_relative_to_cube(robot: cozmo.robot.Robot):
 		except asyncio.TimeoutError:
 			print("Didn't find a cube")
 
-	desired_pose_relative_to_cube = Pose(0, 100, 0, angle_z=degrees(90))
+	# Goal tuned based on wanted cube animation
+	desired_pose_relative_to_cube = Pose(10, 10, 0, angle_z=degrees(90))
 
-	# ####
-	# TODO: Make the robot move to the given desired_pose_relative_to_cube,
-	# which you will need to tune based on the action you perform on the cube.
-	# Use the get_relative_pose function your implemented to determine the
-	# desired robot pose relative to the robot's current pose and then use
-	# navigation functions below to move it there. Once the robot reaches the
-	# desired relative pose, it should perform an action on the cube using its
-	# forklift and/or base movement.
-	# ####
+	# Get relative pose between cube and robot
+	cTr = get_relative_pose(cube.pose, robot.pose)
+	cTr_mat = np.array(cTr.to_matrix().in_column_order).reshape((4,4))
+
+	# Given 4x4 matrix of desired goal in cube frame, convert it to robot frame using the found transform
+	goal_pose_in_cube_frame = np.array(desired_pose_relative_to_cube.to_matrix().in_column_order).reshape((4,4))
+	goal_pose_in_robot_frame = goal_pose_in_cube_frame @ cTr_mat
+
+	z = R.from_matrix(goal_pose_in_robot_frame[0:3,0:3]).as_euler("zyx", degrees=True)[0]
+	pos = goal_pose_in_robot_frame[:,3]
+
+	# Given the pose of the goal, go to it
+	cozmo_go_to_pose(robot, pos[1], pos[0], z)
+	# Push towards the cube
+	cozmo_drive_straight(robot, 30, 50)
+	# Lift the cube, rotate 360, and drop
+	robot.move_lift(1)
+	time.sleep(.7)
+	robot.turn_in_place(cozmo.util.degrees(360)).wait_for_completed()
+	robot.move_lift(-1)
+	time.sleep(1)
 
 
 # Wrappers for existing Cozmo navigation functions
@@ -102,9 +126,9 @@ def cozmo_turn_in_place(robot, angle, speed):
 if __name__ == '__main__':
 
 	## For step 2
-	cozmo.run_program(find_relative_cube_pose)
+	# cozmo.run_program(find_relative_cube_pose)
 
 	## For step 3
-	# cozmo.run_program(move_relative_to_cube)
+	cozmo.run_program(move_relative_to_cube)
 
 
